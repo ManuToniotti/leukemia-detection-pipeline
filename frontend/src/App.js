@@ -1,6 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import * as tf from '@tensorflow/tfjs';
-import axios from 'axios';
+import { styled } from '@mui/material/styles';
+import { Box, Typography, Button, CircularProgress } from '@mui/material';
+import { Warning, CloudUpload } from '@mui/icons-material';
+import moment from 'moment';
+
+// Styled components
+const UploadBox = styled(Box)(({ theme }) => ({
+  border: '2px dashed #E5E7EB',
+  borderRadius: '8px',
+  padding: '40px',
+  textAlign: 'center',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+  marginBottom: theme.spacing(4),
+  '&:hover': {
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB'
+  }
+}));
+
+const ResultsContainer = styled(Box)({
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '24px',
+  width: '100%'
+});
+
+const ImageContainer = styled(Box)({
+  position: 'relative',
+  backgroundColor: '#F9FAFB',
+  borderRadius: '8px',
+  overflow: 'hidden'
+});
+
+const ResultsPanel = styled(Box)({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '16px'
+});
+
+const ResultCard = styled(Box)(({ abnormal }) => ({
+  backgroundColor: 'white',
+  borderRadius: '8px',
+  padding: '24px',
+  border: '1px solid',
+  borderColor: abnormal ? '#FEE2E2' : '#ECFDF5'
+}));
+
+const ConfidenceCard = styled(Box)({
+  backgroundColor: '#18181B',
+  color: 'white',
+  borderRadius: '8px',
+  padding: '24px'
+});
+
+const SaveButton = styled(Button)({
+  backgroundColor: 'white',
+  color: '#18181B',
+  border: '1px solid #E5E7EB',
+  borderRadius: '8px',
+  padding: '8px 16px',
+  textTransform: 'none',
+  boxShadow: 'none',
+  '&:hover': {
+    backgroundColor: '#F9FAFB',
+    boxShadow: 'none'
+  }
+});
 
 function App() {
   const [file, setFile] = useState(null);
@@ -12,10 +79,8 @@ function App() {
   useEffect(() => {
     async function loadModel() {
       try {
-        console.log('Starting to load model...');
         const loadedModel = await tf.loadLayersModel('http://localhost:3001/model_tfjs/model.json');
         setModel(loadedModel);
-        console.log('Model loaded successfully!', loadedModel);
       } catch (error) {
         console.error('Error loading model:', error);
       }
@@ -55,33 +120,29 @@ function App() {
     }
   };
 
-    const handleUpload = async (file) => {
-        if (!model) {
-            console.error('Model not loaded yet - please wait and try again');
-            setLoading(false);  
-            return;
-        }
-        try {
-            setLoading(true);
-            console.log('Processing image...');
-            const imageElement = await processImage(file);
-            console.log('Image processed, starting prediction...');
-            const startTime = Date.now();
-            const result = await handlePredict(imageElement);
-            console.log('Prediction complete:', result);
-            const processingTime = ((Date.now() - startTime) / 1000).toFixed(2);
-            setPrediction({
-                ...result,
-                processingTime: `${processingTime}s`
-            });
-        } catch (error) {
-            console.error('Error during upload/prediction:', error);
-            setPrediction(null); 
-        } finally {
-            setLoading(false);
-        }
-    };
-
+  const handleUpload = async (file) => {
+    if (!model) {
+      console.error('Model not loaded yet - please wait and try again');
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const imageElement = await processImage(file);
+      const startTime = Date.now();
+      const result = await handlePredict(imageElement);
+      const processingTime = ((Date.now() - startTime) / 1000).toFixed(2);
+      setPrediction({
+        ...result,
+        processingTime: `${processingTime}s`
+      });
+    } catch (error) {
+      console.error('Error during upload/prediction:', error);
+      setPrediction(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -98,90 +159,140 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold text-center text-gray-800 mb-2">
-          Leukemia Detection System
-        </h1>
-          {!model && (
-              <div className="text-center text-yellow-600 bg-yellow-50 p-4 rounded-lg mb-4">
-                  Loading model... Please wait before uploading images.
-              </div>
-          )}
-        <p className="text-center text-gray-600 mb-8">
-          Upload a blood cell image for instant analysis
-        </p>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'white' }}>
+      {/* Header */}
+      <Box sx={{ bgcolor: '#18181B', color: 'white', py: 3 }}>
+        <Box sx={{ maxWidth: '1200px', mx: 'auto', px: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 500 }}>
+              Leukemia Detection System
+            </Typography>
+            <Typography sx={{ color: '#A1A1AA', fontSize: '14px' }}>
+              |
+            </Typography>
+            <Typography sx={{ color: '#A1A1AA', fontSize: '14px' }}>
+              Upload a blood cell image for instant analysis
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
 
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          <div
-            className="border-2 border-dashed border-blue-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 transition-colors"
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onClick={() => document.getElementById('fileInput').click()}
-          >
-            <input
-              id="fileInput"
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <div className="text-6xl mb-4">🔬</div>
-            <p className="text-gray-600 mb-2">
-              Drag and drop your image here or click to browse
-            </p>
-            <p className="text-sm text-gray-500">
-              Supports: JPG, PNG, GIF
-            </p>
-          </div>
-        </div>
-        {preview && (
-          <div className="mb-8 text-center">
-            <h2 className="text-xl font-semibold mb-4">Image Preview</h2>
-            <img
-              src={preview}
-              alt="Preview"
-              className="max-h-64 rounded-lg mx-auto"
-            />
-          </div>
-        )}
+      {/* Main Content */}
+      <Box sx={{ maxWidth: '1200px', mx: 'auto', p: 3 }}>
+        {/* Upload Area */}
+        <UploadBox
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onClick={() => document.getElementById('fileInput').click()}
+        >
+          <input
+            id="fileInput"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+            <CloudUpload sx={{ color: '#9CA3AF' }} />
+            <Typography>
+              Drag and drop your image here or{' '}
+              <Typography component="span" sx={{ color: '#3B82F6', textDecoration: 'underline', cursor: 'pointer' }}>
+                click to browse
+              </Typography>
+            </Typography>
+          </Box>
+        </UploadBox>
+
         {loading && (
-          <div className="mb-8 text-center">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <span className="ml-3 text-gray-600">Analyzing image...</span>
-            </div>
-          </div>
+          <Box sx={{ textAlign: 'center', my: 4 }}>
+            <CircularProgress size={32} />
+            <Typography sx={{ mt: 2, color: '#6B7280' }}>
+              Analyzing image...
+            </Typography>
+          </Box>
         )}
-        {prediction && (
-          <div className="text-center">
-            <h2 className="text-xl font-semibold mb-4">Analysis Results</h2>
-            <div className={`p-4 rounded-lg inline-block ${
-                prediction.prediction === "Normal"
-                    ? "bg-green-50 border border-green-200"
-                    : "bg-red-50 border border-red-200"
-            }`}>
-              <div className="mb-3">
-                <span className="font-medium">Classification:</span>{' '}
-                <span className={prediction.prediction === "Normal" ? "text-green-600" : "text-red-600"}>
-                  {prediction.prediction}
-                </span>
-              </div>
-              <div className="mb-3">
-                <span className="font-medium">Confidence:</span>{' '}
-                <span className="text-gray-700">
-                  {(prediction.confidence * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div>
-                <span className="font-medium">Processing Time:</span>{' '}
-                <span className="text-gray-700">{prediction.processingTime}</span>
-              </div>
-            </div>
-          </div>
+
+        {preview && !loading && (
+          <ResultsContainer>
+            {/* Image Preview */}
+            <ImageContainer>
+              <Box
+                component="img"
+                src={preview}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
+              />
+              <Box sx={{ 
+                position: 'absolute', 
+                bottom: 0, 
+                left: 0, 
+                right: 0, 
+                p: 2, 
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: 'rgba(0,0,0,0.1)',
+                backdropFilter: 'blur(4px)'
+              }}>
+                <Typography sx={{ color: '#18181B' }}>
+                  Uploaded time: {moment().format('DD/MM/YYYY')}
+                </Typography>
+                <SaveButton>
+                  Save results
+                </SaveButton>
+              </Box>
+            </ImageContainer>
+
+            {/* Results */}
+            {prediction && (
+              <ResultsPanel>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Results:
+                </Typography>
+
+                <ResultCard abnormal={prediction.prediction === "Abnormal"}>
+                  <Typography sx={{ mb: 1, color: '#6B7280' }}>
+                    Classification:
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="h4" sx={{ 
+                      color: prediction.prediction === "Abnormal" ? '#DC2626' : '#059669',
+                      fontWeight: 500
+                    }}>
+                      {prediction.prediction}
+                    </Typography>
+                    {prediction.prediction === "Abnormal" && (
+                      <Warning sx={{ color: '#DC2626' }} />
+                    )}
+                  </Box>
+                </ResultCard>
+
+                <ConfidenceCard>
+                  <Typography sx={{ mb: 1, color: '#A1A1AA' }}>
+                    Confidence:
+                  </Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 500 }}>
+                    {(prediction.confidence * 100).toFixed(0)}%
+                  </Typography>
+                </ConfidenceCard>
+
+                <ResultCard>
+                  <Typography sx={{ mb: 1, color: '#6B7280' }}>
+                    Processing Time:
+                  </Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 500 }}>
+                    {prediction.processingTime}
+                  </Typography>
+                </ResultCard>
+              </ResultsPanel>
+            )}
+          </ResultsContainer>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
